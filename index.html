@@ -50,7 +50,6 @@
     <div id="main-app" class="max-w-4xl mx-auto hidden">
         <header class="text-center mb-10">
             <h1 class="text-4xl sm:text-5xl font-extrabold text-blue-800">Student Attendance Manager</h1>
-            <!-- Removed: "Time tracking powered by Firebase Firestore." -->
         </header>
 
         <!-- Attendance Grid -->
@@ -91,7 +90,7 @@
     </div>
 
     <!-- 1. LOGIN MODAL (Initial screen) -->
-    <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay">
+    <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Admin Login</h2>
             <form id="login-form">
@@ -162,17 +161,19 @@
 
     <!-- Firebase SDK Imports -->
     <script type="module">
+        // NOTE: We only import the Firestore and App dependencies, as we are bypassing the complex Auth setup for static hosting.
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, getDoc, setDoc, onSnapshot, collection, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, addDoc, getDoc, setDoc, onSnapshot, collection, query, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let db, auth, userId = null;
-        let students = []; // Array to hold local student data
+        // --- STATIC FALLBACK CONFIG FOR GITHUB PAGES ---
+        // We define placeholder values since the environment variables (__app_id, __firebase_config) are missing outside this environment.
+        const appId = 'github-static-attendance-app';
+        // A dummy config is needed just to initialize the Firebase App
+        const firebaseConfig = { apiKey: "DUMMY_API_KEY", authDomain: "DUMMY.firebaseapp.com", projectId: "DUMMY-PROJECT" };
+        let userId = 'static-admin-user-123'; // Static user ID for data scoping
+        
+        let db;
+        let students = []; 
         let isAuthenticated = false;
 
         // Mock student data for initialization if the collection is empty
@@ -233,6 +234,7 @@
          * Gets the Firestore collection path for student records.
          */
         function getStudentsCollectionPath(uid) {
+            // Using the static userId defined above
             return `artifacts/${appId}/users/${uid}/students`;
         }
 
@@ -240,7 +242,26 @@
          * Gets the Firestore collection path for daily attendance records.
          */
         function getAttendanceCollectionPath(uid) {
+            // Using the static userId defined above
             return `artifacts/${appId}/users/${uid}/daily_attendance`;
+        }
+
+        /**
+         * Checks if a session exists in localStorage and restores the app state.
+         */
+        function checkLocalSession() {
+            if (localStorage.getItem('attendance_is_authenticated') === 'true') {
+                // If authenticated, skip login modal and show main app
+                isAuthenticated = true;
+                loginModal.style.display = 'none';
+                mainApp.classList.remove('hidden');
+                userIdDisplay.textContent = userId;
+                currentDateDisplay.textContent = getReadableDate();
+                listenToStudents(); 
+            } else {
+                // Show login modal if no session exists
+                loginModal.style.display = 'flex';
+            }
         }
 
 
@@ -262,7 +283,8 @@
             }
 
             sortedStudents.forEach(student => {
-                const isChecked = student.present ? 'checked' : '';
+                // Default 'present' state to false unless marked otherwise during session
+                const isChecked = student.present ? 'checked' : ''; 
                 const row = document.createElement('tr');
                 row.className = 'hover:bg-blue-50';
                 row.innerHTML = `
@@ -314,8 +336,14 @@
                 const studentList = [];
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    // Add a default 'present' state for the current session
-                    studentList.push({ id: doc.id, name: data.name, rollNumber: data.rollNumber, present: false });
+                    // Add a default 'present' state for the current session, preserving state if possible
+                    const existingStudent = students.find(s => s.id === doc.id);
+                    studentList.push({ 
+                        id: doc.id, 
+                        name: data.name, 
+                        rollNumber: data.rollNumber, 
+                        present: existingStudent ? existingStudent.present : false 
+                    });
                 });
                 
                 students = studentList;
@@ -339,9 +367,11 @@
             try {
                 if (students.length === 0) {
                     console.log("Initializing mock student data...");
-                    for (const student of initialStudentsData) {
-                        await addDoc(collection(db, path), student);
-                    }
+                    // Use Promise.all to ensure all documents are added asynchronously and we wait for the entire batch.
+                    const addPromises = initialStudentsData.map(student =>
+                        addDoc(collection(db, path), student)
+                    );
+                    await Promise.all(addPromises);
                 }
             } catch (e) {
                 console.error("Error initializing mock students:", e);
@@ -369,7 +399,7 @@
         }
         
         /**
-         * Handles the mock admin login.
+         * Handles the mock admin login using localStorage.
          */
         function handleLogin(event) {
             event.preventDefault();
@@ -377,12 +407,16 @@
             const password = document.getElementById('password').value;
 
             if (username === 'admin' && password === 'password') {
+                // *** FIX 1: Store state in localStorage and unlock the app immediately ***
+                localStorage.setItem('attendance_is_authenticated', 'true');
                 isAuthenticated = true;
                 loginModal.style.display = 'none';
                 mainApp.classList.remove('hidden');
+                
+                // userId is already set to 'static-admin-user-123'
                 userIdDisplay.textContent = userId;
                 currentDateDisplay.textContent = getReadableDate();
-                listenToStudents(); // Start data listeners after successful login
+                listenToStudents();
             } else {
                 loginError.classList.remove('hidden');
             }
@@ -407,7 +441,6 @@
                 closeAddStudentModal();
             } catch (e) {
                 console.error("Error adding new student:", e);
-                // In a real app, show a friendly error message
             }
         }
 
@@ -428,7 +461,7 @@
             try {
                 // Save the attendance record
                 await setDoc(docRef, {
-                    date: Timestamp.now(), // Use Timestamp for query flexibility
+                    date: Timestamp.now(), 
                     present_students: presentStudentIds,
                     submitted_by: userId
                 });
@@ -487,28 +520,13 @@
         // --- Firebase Initialization and Event Binding ---
 
         async function initFirebase() {
-            if (!firebaseConfig) {
-                console.error("Firebase configuration not found.");
-                return;
-            }
-
-            // setLogLevel('debug');
+            
+            // *** FIX 2: Simple Initialization without complex auth checks ***
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
-            auth = getAuth(app);
 
-            // Authentication using provided token or anonymous fallback
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                userId = auth.currentUser.uid;
-            } catch (error) {
-                console.error("Authentication failed:", error);
-                // Fallback UI can be added here
-            }
+            // Check if the user is already logged in via localStorage
+            checkLocalSession(); 
 
             // Bind Event Listeners
             loginForm.addEventListener('submit', handleLogin);
@@ -519,7 +537,7 @@
             document.getElementById('close-report-btn').addEventListener('click', closeReportModal);
         }
 
-        // Start the application setup. Login modal remains visible until login is successful.
+        // Start the application setup.
         initFirebase();
     </script>
 </body>
