@@ -1,544 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Attendance System</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Configure Tailwind to use Inter font and apply rounded corners -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                }
-            }
-        }
-    </script>
-    <style>
-        /* Custom styles for button aesthetics */
-        .btn-base {
-            transition: all 0.2s ease-in-out;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transform: translateY(0);
-        }
-        .btn-base:hover {
-            box-shadow: 0 8px 10px rgba(0, 0, 0, 0.1);
-            transform: translateY(-1px);
-        }
-        .btn-base:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        .modal-overlay {
-            background-color: rgba(0, 0, 0, 0.6);
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Management</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background-color: #f0f8ff;
+      margin: 0;
+      padding: 0;
+    }
 
-        /* Focus state for accessibility */
-        input:focus {
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); /* Blue-500 equivalent */
-        }
-    </style>
+    header {
+      background-color: #007bff;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: 600;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    main {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      color: #007bff;
+      margin-bottom: 20px;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 10px;
+      border-bottom: 1px solid #eaeaea;
+    }
+
+    li:last-child {
+      border-bottom: none;
+    }
+
+    label {
+      flex-grow: 1;
+      font-weight: 500;
+    }
+
+    input[type="checkbox"] {
+      transform: scale(1.3);
+      accent-color: #007bff;
+    }
+
+    .buttons {
+      text-align: center;
+      margin-top: 25px;
+    }
+
+    button {
+      background-color: #007bff;
+      border: none;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1em;
+      margin: 5px;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .report {
+      background: #e6f2ff;
+      border: 1px solid #007bff;
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+
+    .report h3 {
+      color: #007bff;
+      margin-bottom: 10px;
+    }
+
+    .empty {
+      text-align: center;
+      color: gray;
+      margin-top: 10px;
+    }
+  </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans p-4 sm:p-8">
+<body>
 
-    <!-- Main Application Content (Initially hidden until login) -->
-    <div id="main-app" class="max-w-4xl mx-auto hidden">
-        <header class="text-center mb-10">
-            <h1 class="text-4xl sm:text-5xl font-extrabold text-blue-800">Student Attendance Manager</h1>
-        </header>
+  <header>📋 Attendance Management System</header>
 
-        <!-- Attendance Grid -->
-        <div class="bg-white p-6 rounded-xl shadow-lg">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-gray-700">Today's Attendance (<span id="current-date"></span>)</h2>
-                <div id="user-info" class="text-xs text-gray-500">
-                    User ID: <span id="user-id-display" class="font-mono text-gray-800 break-all"></span>
-                </div>
-            </div>
+  <main>
+    <h2>Student List</h2>
+    <ul id="studentList"></ul>
 
-            <div class="overflow-x-auto h-96 overflow-y-scroll border border-gray-200 rounded-lg">
-                <table class="min-w-full divide-y divide-gray-200" id="student-table">
-                    <thead class="bg-gray-50 sticky top-0 z-10">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll No.</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student Name</th>
-                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Present</th>
-                        </tr>
-                    </thead>
-                    <tbody id="student-list-body" class="bg-white divide-y divide-gray-200">
-                        <!-- Student rows will be inserted here -->
-                        <tr><td colspan="3" class="px-6 py-4 text-center text-gray-500" id="list-loading">Loading students...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="mt-6 flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
-                <button id="add-student-btn" class="btn-base px-6 py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-700">
-                    Add New Student
-                </button>
-                <button id="submit-btn" class="btn-base px-6 py-3 rounded-xl text-white font-semibold bg-green-600 hover:bg-green-700">
-                    Submit Attendance
-                </button>
-            </div>
-        </div>
+    <div class="buttons">
+      <button onclick="viewReport()">View Report</button>
+      <button onclick="addStudent()">Add New Student</button>
     </div>
 
-    <!-- 1. LOGIN MODAL (Initial screen) -->
-    <div id="login-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Admin Login</h2>
-            <form id="login-form">
-                <div class="mb-4">
-                    <label for="username" class="block text-sm font-medium text-gray-700">Username (admin)</label>
-                    <input type="text" id="username" value="admin" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div class="mb-6">
-                    <label for="password" class="block text-sm font-medium text-gray-700">Password (password)</label>
-                    <input type="password" id="password" value="password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <p id="login-error" class="text-red-500 text-sm mb-4 hidden">Invalid credentials. Try admin/password.</p>
-                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-xl font-semibold btn-base hover:bg-blue-700">
-                    Login
-                </button>
-            </form>
-        </div>
-    </div>
+    <div id="reportSection"></div>
+  </main>
 
-    <!-- 2. ADD STUDENT MODAL -->
-    <div id="add-student-modal" class="fixed inset-0 z-40 hidden items-center justify-center modal-overlay">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">Add New Student</h2>
-            <form id="add-student-form">
-                <div class="mb-4">
-                    <label for="student-name" class="block text-sm font-medium text-gray-700">Student Name</label>
-                    <input type="text" id="student-name" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div class="mb-6">
-                    <label for="roll-number" class="block text-sm font-medium text-gray-700">Roll Number</label>
-                    <input type="text" id="roll-number" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div class="flex justify-end space-x-3">
-                    <button type="button" id="close-add-student-btn" class="px-4 py-2 text-gray-600 bg-gray-200 rounded-xl hover:bg-gray-300">
-                        Cancel
-                    </button>
-                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-xl font-semibold btn-base hover:bg-green-700">
-                        Save Student
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+  <script>
+    const studentList = document.getElementById('studentList');
+    const reportSection = document.getElementById('reportSection');
 
-    <!-- 3. ATTENDANCE REPORT MODAL -->
-    <div id="report-modal" class="fixed inset-0 z-40 hidden items-center justify-center modal-overlay">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg max-h-4/5 overflow-y-auto">
-            <h2 class="text-2xl font-bold text-blue-700 mb-4">Attendance Report for Today</h2>
-            <p id="report-date" class="text-sm text-gray-500 mb-6"></p>
+    // Load students from localStorage or set default
+    let students = JSON.parse(localStorage.getItem('students')) || [
+      { name: 'Aarav Sharma', roll: '101' },
+      { name: 'Priya Mehta', roll: '102' },
+      { name: 'Rohan Das', roll: '103' }
+    ];
 
-            <div id="report-content">
-                <p class="text-gray-700 font-medium mb-3" id="present-count-text">Students Present (0):</p>
-                <ul id="present-students-list" class="space-y-2 list-disc list-inside pl-4 text-gray-800">
-                    <!-- Present students will be listed here -->
-                </ul>
-            </div>
-            
-            <p id="report-message" class="text-center text-lg text-gray-500 py-10 hidden">Attendance has not been submitted yet for today.</p>
+    function renderList() {
+      studentList.innerHTML = '';
+      students.forEach((student, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <label>${student.roll} - ${student.name}</label>
+          <input type="checkbox" id="check${index}">
+        `;
+        studentList.appendChild(li);
+      });
+    }
 
-            <div class="mt-8 flex justify-end">
-                <button type="button" id="close-report-btn" class="px-6 py-3 text-white bg-red-600 rounded-xl hover:bg-red-700 btn-base">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
+    function addStudent() {
+      const name = prompt("Enter student name:");
+      if (!name) return;
+      const roll = prompt("Enter roll number:");
+      if (!roll) return;
+      students.push({ name, roll });
+      localStorage.setItem('students', JSON.stringify(students));
+      renderList();
+    }
 
+    function viewReport() {
+      const checkboxes = studentList.querySelectorAll('input[type="checkbox"]');
+      let presentStudents = [];
 
-    <!-- Firebase SDK Imports -->
-    <script type="module">
-        // NOTE: We only import the Firestore and App dependencies, as we are bypassing the complex Auth setup for static hosting.
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, addDoc, getDoc, setDoc, onSnapshot, collection, query, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- STATIC FALLBACK CONFIG FOR GITHUB PAGES ---
-        // We define placeholder values since the environment variables (__app_id, __firebase_config) are missing outside this environment.
-        const appId = 'github-static-attendance-app';
-        // A dummy config is needed just to initialize the Firebase App
-        const firebaseConfig = { apiKey: "DUMMY_API_KEY", authDomain: "DUMMY.firebaseapp.com", projectId: "DUMMY-PROJECT" };
-        let userId = 'static-admin-user-123'; // Static user ID for data scoping
-        
-        let db;
-        let students = []; 
-        let isAuthenticated = false;
-
-        // Mock student data for initialization if the collection is empty
-        const initialStudentsData = [
-            { name: 'Alice Johnson', rollNumber: 'R101' },
-            { name: 'Bob Smith', rollNumber: 'R102' },
-            { name: 'Charlie Brown', rollNumber: 'R103' },
-            { name: 'Diana Prince', rollNumber: 'R104' },
-            { name: 'Ethan Hunt', rollNumber: 'R105' },
-            { name: 'Fiona Glenn', rollNumber: 'R106' },
-            { name: 'George Clooney', rollNumber: 'R107' },
-            { name: 'Hannah Montana', rollNumber: 'R108' },
-            { name: 'Isaac Newton', rollNumber: 'R109' },
-            { name: 'Jane Doe', rollNumber: 'R110' },
-        ];
-        
-        // --- UI Elements ---
-        const loginModal = document.getElementById('login-modal');
-        const loginForm = document.getElementById('login-form');
-        const loginError = document.getElementById('login-error');
-        const mainApp = document.getElementById('main-app');
-        const studentListBody = document.getElementById('student-list-body');
-        const listLoading = document.getElementById('list-loading');
-        const userIdDisplay = document.getElementById('user-id-display');
-        const currentDateDisplay = document.getElementById('current-date');
-
-        // Modals
-        const addStudentModal = document.getElementById('add-student-modal');
-        const reportModal = document.getElementById('report-modal');
-        const reportDateDisplay = document.getElementById('report-date');
-        const reportContent = document.getElementById('report-content');
-        const reportMessage = document.getElementById('report-message');
-        const presentStudentsList = document.getElementById('present-students-list');
-        const presentCountText = document.getElementById('present-count-text');
-
-
-        // --- Utility Functions ---
-
-        /**
-         * Returns the current date in YYYY-MM-DD format for use as a Firestore document ID.
-         * @returns {string}
-         */
-        function getCurrentDateKey() {
-            return new Date().toISOString().split('T')[0];
+      checkboxes.forEach((box, index) => {
+        if (box.checked) {
+          presentStudents.push(`${students[index].roll} - ${students[index].name}`);
         }
+      });
 
-        /**
-         * Displays a date in a readable format.
-         * @returns {string}
-         */
-        function getReadableDate() {
-            return new Date().toLocaleDateString(undefined, {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-            });
-        }
-        
-        /**
-         * Gets the Firestore collection path for student records.
-         */
-        function getStudentsCollectionPath(uid) {
-            // Using the static userId defined above
-            return `artifacts/${appId}/users/${uid}/students`;
-        }
+      reportSection.innerHTML = '';
+      const reportDiv = document.createElement('div');
+      reportDiv.classList.add('report');
 
-        /**
-         * Gets the Firestore collection path for daily attendance records.
-         */
-        function getAttendanceCollectionPath(uid) {
-            // Using the static userId defined above
-            return `artifacts/${appId}/users/${uid}/daily_attendance`;
-        }
+      if (presentStudents.length === 0) {
+        reportDiv.innerHTML = `<p class="empty">No students marked present yet!</p>`;
+      } else {
+        reportDiv.innerHTML = `
+          <h3>✅ Present Students:</h3>
+          <ul>${presentStudents.map(s => `<li>${s}</li>`).join('')}</ul>
+        `;
+      }
 
-        /**
-         * Checks if a session exists in localStorage and restores the app state.
-         */
-        function checkLocalSession() {
-            if (localStorage.getItem('attendance_is_authenticated') === 'true') {
-                // If authenticated, skip login modal and show main app
-                isAuthenticated = true;
-                loginModal.style.display = 'none';
-                mainApp.classList.remove('hidden');
-                userIdDisplay.textContent = userId;
-                currentDateDisplay.textContent = getReadableDate();
-                listenToStudents(); 
-            } else {
-                // Show login modal if no session exists
-                loginModal.style.display = 'flex';
-            }
-        }
+      reportSection.appendChild(reportDiv);
+    }
 
+    renderList();
+  </script>
 
-        // --- Core Application Logic ---
-
-        /**
-         * Renders the student list table from the local 'students' array.
-         */
-        function renderStudentList() {
-            studentListBody.innerHTML = '';
-            listLoading.classList.add('hidden');
-
-            // Sort students by roll number (simple string comparison for R101, R102...)
-            const sortedStudents = students.sort((a, b) => a.rollNumber.localeCompare(b.rollNumber));
-
-            if (sortedStudents.length === 0) {
-                 studentListBody.innerHTML = `<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500">No students found. Add one below!</td></tr>`;
-                 return;
-            }
-
-            sortedStudents.forEach(student => {
-                // Default 'present' state to false unless marked otherwise during session
-                const isChecked = student.present ? 'checked' : ''; 
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-blue-50';
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${student.rollNumber}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${student.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                        <input type="checkbox" data-student-id="${student.id}" class="h-5 w-5 text-green-600 border-gray-300 rounded focus:ring-green-500" ${isChecked}>
-                    </td>
-                `;
-                studentListBody.appendChild(row);
-            });
-        }
-
-        /**
-         * Attaches listeners to the checkboxes and updates local 'students' state.
-         */
-        function attachCheckboxListeners() {
-            // Remove previous listeners to prevent duplicates
-            studentListBody.removeEventListener('change', handleCheckboxChange);
-            studentListBody.addEventListener('change', handleCheckboxChange);
-        }
-
-        /**
-         * Handler for checkbox state change.
-         */
-        function handleCheckboxChange(event) {
-            if (event.target.type === 'checkbox') {
-                const studentId = event.target.dataset.studentId;
-                const isPresent = event.target.checked;
-                
-                const studentIndex = students.findIndex(s => s.id === studentId);
-                if (studentIndex > -1) {
-                    students[studentIndex].present = isPresent;
-                }
-            }
-        }
-
-        /**
-         * Sets up a real-time listener for the user's student list.
-         * Initializes mock data if the collection is empty.
-         */
-        function listenToStudents() {
-            if (!db || !userId) return;
-
-            const path = getStudentsCollectionPath(userId);
-            const q = collection(db, path);
-
-            onSnapshot(q, async (snapshot) => {
-                const studentList = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    // Add a default 'present' state for the current session, preserving state if possible
-                    const existingStudent = students.find(s => s.id === doc.id);
-                    studentList.push({ 
-                        id: doc.id, 
-                        name: data.name, 
-                        rollNumber: data.rollNumber, 
-                        present: existingStudent ? existingStudent.present : false 
-                    });
-                });
-                
-                students = studentList;
-
-                if (students.length === 0) {
-                    // Only initialize mock data if the collection is truly empty on the first load
-                    await initializeMockStudents(path);
-                } else {
-                    renderStudentList();
-                    attachCheckboxListeners();
-                }
-            }, (error) => {
-                console.error("Error listening to students records: ", error);
-            });
-        }
-        
-        /**
-         * Initializes Firestore with mock students if the collection is empty.
-         */
-        async function initializeMockStudents(path) {
-            try {
-                if (students.length === 0) {
-                    console.log("Initializing mock student data...");
-                    // Use Promise.all to ensure all documents are added asynchronously and we wait for the entire batch.
-                    const addPromises = initialStudentsData.map(student =>
-                        addDoc(collection(db, path), student)
-                    );
-                    await Promise.all(addPromises);
-                }
-            } catch (e) {
-                console.error("Error initializing mock students:", e);
-            }
-        }
-
-
-        // --- Event Handlers (Modals & Actions) ---
-
-        function openAddStudentModal() {
-            addStudentModal.style.display = 'flex';
-        }
-
-        function closeAddStudentModal() {
-            addStudentModal.style.display = 'none';
-            document.getElementById('add-student-form').reset();
-        }
-
-        function openReportModal() {
-            reportModal.style.display = 'flex';
-        }
-
-        function closeReportModal() {
-            reportModal.style.display = 'none';
-        }
-        
-        /**
-         * Handles the mock admin login using localStorage.
-         */
-        function handleLogin(event) {
-            event.preventDefault();
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-
-            if (username === 'admin' && password === 'password') {
-                // *** FIX 1: Store state in localStorage and unlock the app immediately ***
-                localStorage.setItem('attendance_is_authenticated', 'true');
-                isAuthenticated = true;
-                loginModal.style.display = 'none';
-                mainApp.classList.remove('hidden');
-                
-                // userId is already set to 'static-admin-user-123'
-                userIdDisplay.textContent = userId;
-                currentDateDisplay.textContent = getReadableDate();
-                listenToStudents();
-            } else {
-                loginError.classList.remove('hidden');
-            }
-        }
-
-        /**
-         * Adds a new student to the Firestore collection.
-         */
-        async function handleAddStudent(event) {
-            event.preventDefault();
-            const name = document.getElementById('student-name').value.trim();
-            const rollNumber = document.getElementById('roll-number').value.trim();
-
-            if (!name || !rollNumber) return;
-
-            try {
-                const path = getStudentsCollectionPath(userId);
-                await addDoc(collection(db, path), {
-                    name: name,
-                    rollNumber: rollNumber
-                });
-                closeAddStudentModal();
-            } catch (e) {
-                console.error("Error adding new student:", e);
-            }
-        }
-
-        /**
-         * Submits today's attendance record.
-         */
-        async function handleSubmitAttendance() {
-            if (!students.length) return;
-
-            const presentStudentIds = students
-                .filter(s => s.present)
-                .map(s => s.id);
-            
-            const attendanceDateKey = getCurrentDateKey();
-            const path = getAttendanceCollectionPath(userId);
-            const docRef = doc(db, path, attendanceDateKey);
-
-            try {
-                // Save the attendance record
-                await setDoc(docRef, {
-                    date: Timestamp.now(), 
-                    present_students: presentStudentIds,
-                    submitted_by: userId
-                });
-                // After submission, show the report
-                showAttendanceReport(presentStudentIds);
-
-            } catch (e) {
-                console.error("Error submitting attendance:", e);
-            }
-        }
-        
-        /**
-         * Loads and shows the daily attendance report in the modal.
-         * @param {Array<string>|null} [presentIds=null] - Optional array of IDs to show immediately after submit.
-         */
-        async function showAttendanceReport(presentIds = null) {
-            presentStudentsList.innerHTML = '';
-            reportDateDisplay.textContent = getReadableDate();
-            reportContent.classList.remove('hidden');
-            reportMessage.classList.add('hidden');
-
-            let finalPresentIds = presentIds;
-
-            // If no IDs were passed (i.e., not immediately after submit), fetch from Firestore
-            if (finalPresentIds === null) {
-                const attendanceDateKey = getCurrentDateKey();
-                const path = getAttendanceCollectionPath(userId);
-                const docRef = doc(db, path, attendanceDateKey);
-                const docSnap = await getDoc(docRef);
-
-                if (docSnap.exists()) {
-                    finalPresentIds = docSnap.data().present_students || [];
-                } else {
-                    reportContent.classList.add('hidden');
-                    reportMessage.classList.remove('hidden');
-                    openReportModal();
-                    return;
-                }
-            }
-
-            const presentStudentsNames = students
-                .filter(s => finalPresentIds.includes(s.id))
-                .map(s => s.name);
-                
-            presentStudentsNames.forEach(name => {
-                const li = document.createElement('li');
-                li.textContent = name;
-                presentStudentsList.appendChild(li);
-            });
-
-            presentCountText.textContent = `Students Present (${presentStudentsNames.length}):`;
-            
-            openReportModal();
-        }
-
-        // --- Firebase Initialization and Event Binding ---
-
-        async function initFirebase() {
-            
-            // *** FIX 2: Simple Initialization without complex auth checks ***
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-
-            // Check if the user is already logged in via localStorage
-            checkLocalSession(); 
-
-            // Bind Event Listeners
-            loginForm.addEventListener('submit', handleLogin);
-            document.getElementById('add-student-btn').addEventListener('click', openAddStudentModal);
-            document.getElementById('close-add-student-btn').addEventListener('click', closeAddStudentModal);
-            document.getElementById('add-student-form').addEventListener('submit', handleAddStudent);
-            document.getElementById('submit-btn').addEventListener('click', handleSubmitAttendance);
-            document.getElementById('close-report-btn').addEventListener('click', closeReportModal);
-        }
-
-        // Start the application setup.
-        initFirebase();
-    </script>
 </body>
 </html>
